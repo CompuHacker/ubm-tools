@@ -46,5 +46,8 @@ Earlier versions will also work as the suite and logic are largely unchanged, bu
 # Windows 7
 UserBenchmark's new GUI is apparently not compatible with Windows 7. However, you can still run benchmarks in jsondebug mode on Windows 7. This mode bypasses the GUI, running the tests and exporting results to JSON without requiring the graphical interface.
 
+# Notes
+The six DirectX GPU tests have mutually dependent behavior and your exact selection in `ubm_menu.bat` may not be honored. Feel free to   
+
 # 📜 License
 WTFPL: Just do what the fuck you want to!
