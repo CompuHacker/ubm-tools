@@ -1,0 +1,77 @@
+@echo off
+setlocal ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+
+:: --- Prep variables ---
+for /f %%i in ('hostname') do set HOSTNAME=%%i
+for /f %%i in ('powershell -NoProfile -Command "[int][double]::Parse((Get-Date -UFormat %%s))"') do set UNIXTIME=%%i
+
+set "OUTPUT=%APPDATA%\..\..\Desktop\%UNIXTIME%-%HOSTNAME%.json"
+set "TMPFILE=%TEMP%\ubm_output_%UNIXTIME%.tmp"
+set "JSONTMP=%TEMP%\ubm_json_%UNIXTIME%.tmp"
+set "UBMRE=%APPDATA%\UserBenchmark\App\RunEngine\UserBenchMarkRunEngine.exe"
+
+:: --- Elevate if not admin ---
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+
+:: --- Run UserBenchmark with live output and capture ---
+echo Launching UserBenchmark...
+
+powershell -NoProfile -Command ^
+  "& { & '%UBMRE%' jsondebug | Tee-Object -FilePath '%TMPFILE%' }"
+
+echo.
+
+:: --- Extract JSON block ---
+set INJSON=false
+set /a BRACECOUNT=0
+del "%JSONTMP%" >nul 2>&1
+
+for /f "delims=" %%L in ('type "%TMPFILE%"') do (
+    set "LINE=%%L"
+
+    if "!LINE!"=="{" (
+        set INJSON=true
+    )
+
+    if "!INJSON!"=="true" (
+        >> "%JSONTMP%" echo(!LINE!
+
+        echo !LINE! | findstr /c:"{" >nul && set /a BRACECOUNT+=1
+        echo !LINE! | findstr /c:"}" >nul && set /a BRACECOUNT-=1
+
+        if !BRACECOUNT! LEQ 0 (
+            goto :endloop
+        )
+    )
+)
+
+
+:endloop
+
+:: --- Move final JSON to Desktop ---
+if exist "%JSONTMP%" (
+    move /y "%JSONTMP%" "%OUTPUT%" >nul
+    echo.
+    echo Benchmark complete.
+    echo JSON saved to: %OUTPUT%
+) else (
+    echo.
+    echo ERROR: No JSON extracted. Please check the output.
+)
+
+:: --- Cleanup ---
+del "%TMPFILE%" >nul 2>&1
+
+echo Done.
+endlocal
+exit /b
+
+
+:trim_line
+:: Remove whitespace for logic checks, but leave %%L untouched
+set "LINE=%LINE: =%"
+goto :eof
